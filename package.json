@@ -1,0 +1,35 @@
+{
+  "name": "employee-it-management",
+  "version": "0.1.0",
+  "private": true,
+  "workspaces": [
+    "frontend",
+    "backend",
+    "demo-app"
+  ],
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "scripts": {
+    "dev": "concurrently -k -n api,web,knowledge \"npm run dev -w backend\" \"npm run dev -w frontend\" \"npm run dev -w demo-app\"",
+    "build": "npm run build -w frontend && npm run build -w demo-app",
+    "test": "npm run test -w backend",
+    "db:up": "docker compose up -d --wait mysql",
+    "db:stop": "docker compose stop mysql",
+    "services:up": "docker compose up -d",
+    "services:stop": "docker compose stop",
+    "db:migrate": "npm run migrate -w backend",
+    "identity:setup": "node --env-file=.env infra/keycloak/setup-provisioner.mjs",
+    "verify:devices": "node --env-file=.env backend/scripts/verify-devices.mjs",
+    "verify:access": "node --env-file=.env backend/scripts/verify-access.mjs",
+    "verify:tickets": "node --env-file=.env backend/scripts/verify-tickets.mjs",
+    "verify:offboarding": "node --env-file=.env backend/scripts/verify-offboarding.mjs",
+    "verify:audit": "node --env-file=.env backend/scripts/verify-audit.mjs",
+    "sso:setup": "node --env-file=.env infra/keycloak/setup-sso.mjs",
+    "dev:knowledge": "npm run dev -w demo-app",
+    "mfa:setup": "node --env-file=.env infra/keycloak/setup-mfa.mjs"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.0"
+  }
+}

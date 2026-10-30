@@ -1,0 +1,28 @@
+import React,{useEffect,useState} from 'react';
+import {authenticatedFetch} from './auth.js';
+const launchUrls={'knowledge-base':'http://127.0.0.1:5174/','team-wiki':'http://127.0.0.1:5174/team-wiki/'};
+export function ApplicationAccess({review=false}){
+  const [catalog,setCatalog]=useState([]),[mine,setMine]=useState({employee:null,requests:[],access:[]}),[queue,setQueue]=useState([]),[filter,setFilter]=useState('pending'),[app,setApp]=useState(''),[reason,setReason]=useState(''),[decisions,setDecisions]=useState({}),[busy,setBusy]=useState(false),[loading,setLoading]=useState(true),[error,setError]=useState(''),[message,setMessage]=useState('');
+  async function refresh(){
+    if(review)setQueue((await authenticatedFetch('/api/access/review?'+new URLSearchParams({status:filter}))).requests);
+    else{const [apps,own]=await Promise.all([authenticatedFetch('/api/access/catalog'),authenticatedFetch('/api/access/mine')]);setCatalog(apps.applications);setMine(own);}
+  }
+  useEffect(()=>{refresh().catch(e=>setError(e.message)).finally(()=>setLoading(false));},[]);
+  async function reload(){setBusy(true);setError('');try{await refresh();}catch(e){setError(e.message);}finally{setBusy(false);}}
+  async function act(path,body){setBusy(true);setError('');setMessage('');try{const result=await authenticatedFetch(path,{method:'POST',body:JSON.stringify(body)});setMessage(result.message);await refresh();return true;}catch(e){setError(e.message);try{await refresh();}catch{}return false;}finally{setBusy(false);}}
+  async function submit(e){e.preventDefault();if(await act('/api/access/requests',{applicationId:app,reason})){setApp('');setReason('');}}
+  const rows=review?queue:mine.requests;
+  return <section className="application-panel"><div className="section-title"><div><div className="eyebrow">APPLICATION ACCESS</div><h2>{review?'Access approvals':'My application requests'}</h2></div><button disabled={busy} onClick={reload}>Refresh requests</button></div>
+    <p>Knowledge Base and Team Wiki have launch links in your approved applications. Reports Portal is not connected yet. The demo pages check your role, not your approval status.</p>
+    {review?<form className="device-filters" onSubmit={e=>{e.preventDefault();reload();}}><label>Request status<select value={filter} onChange={e=>setFilter(e.target.value)}>{['pending','approved','rejected','cancelled','all'].map(s=><option value={s} key={s}>{s}</option>)}</select></label><button disabled={busy}>Filter requests</button></form>:<>
+      {!loading&&!mine.employee&&<p className="result-message">Complete employee onboarding before requesting applications. The original demo accounts do not have employee profiles.</p>}
+      <form className="access-request-form" onSubmit={submit}><fieldset disabled={busy||!mine.employee}><legend>Request an application</legend><label>Application<select required value={app} onChange={e=>setApp(e.target.value)}><option value="">Choose an application</option>{catalog.map(item=><option key={item.id} value={item.id} disabled={mine.access.some(a=>a.application_id===item.id)||mine.requests.some(r=>r.application_id===item.id&&r.status==='pending')}>{item.name}</option>)}</select></label>{app&&<p>{catalog.find(a=>a.id===app)?.description}</p>}<label>Business reason<textarea required minLength={10} maxLength={500} value={reason} onChange={e=>setReason(e.target.value)} placeholder="Explain what you need this application for."/></label><button type="submit">Submit access request</button></fieldset></form>
+      {mine.access.length>0&&<div className="approval-list"><h3>Approved applications</h3><ul>{mine.access.map(item=><li key={item.application_id}>{item.application_name} <small>· Approved {item.approved_at}</small>{launchUrls[item.application_id]?<a className="approved-app-link" href={launchUrls[item.application_id]} target="_blank" rel="noopener noreferrer" aria-label={`Open ${item.application_name} (new tab)`}>Open application ↗</a>:<small className="application-unconnected">Contact IT to access this application.</small>}</li>)}</ul></div>}
+    </>}
+    <div aria-live="polite">{error&&<p className="auth-error" role="alert">{error}</p>}{message&&<p className="result-message">{message}</p>}</div>
+    <h3>{review?'Review queue':'Request history'}</h3><p className="list-note">Most recent 100 matching requests.</p>
+    {loading?<p>Loading requests…</p>:rows.length===0?<p>No requests to show.</p>:rows.map(row=><article className="access-request" key={row.id}><div className="device-card-heading"><div><h3>{row.application_name}</h3>{review&&<p>{row.first_name} {row.last_name} · {row.email}</p>}<p className="request-reason">{row.reason}</p><small>Requested {row.created_at}</small></div><span className={'device-status '+row.status}>{row.status}</span></div>{row.decision_reason&&<p className="decision-note">Admin decision: {row.decision_reason}</p>}
+      {row.status==='pending'&&(review?<form className="review-form" onSubmit={e=>{e.preventDefault();act(`/api/access/requests/${row.id}/decision`,{decision:e.nativeEvent.submitter?.value||'approved',reason:decisions[row.id]||''});}}><label>Decision reason<textarea required minLength={10} maxLength={500} value={decisions[row.id]||''} onChange={e=>setDecisions({...decisions,[row.id]:e.target.value})}/></label><div className="form-actions"><button disabled={busy} value="approved" type="submit">Approve request</button><button disabled={busy} value="rejected" type="submit">Reject request</button></div></form>:<button disabled={busy} onClick={()=>act(`/api/access/requests/${row.id}/cancel`,{})}>Cancel request</button>)}
+    </article>)}
+  </section>;
+}

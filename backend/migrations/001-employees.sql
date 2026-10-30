@@ -1,0 +1,24 @@
+CREATE TABLE IF NOT EXISTS employees (
+  id CHAR(36) PRIMARY KEY,
+  username VARCHAR(64) NOT NULL UNIQUE,
+  first_name VARCHAR(80) NOT NULL,
+  last_name VARCHAR(80) NOT NULL,
+  email VARCHAR(254) NOT NULL UNIQUE,
+  department VARCHAR(100) NOT NULL,
+  start_date DATE NOT NULL,
+  role ENUM('employee','it-support') NOT NULL,
+  status ENUM('pending','active','failed') NOT NULL DEFAULT 'pending',
+  keycloak_id VARCHAR(64) NULL UNIQUE,
+  created_by VARCHAR(64) NOT NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS onboarding_events (
+  id BIGINT AUTO_INCREMENT PRIMARY KEY,
+  employee_id CHAR(36) NOT NULL,
+  actor_id VARCHAR(64) NOT NULL,
+  action VARCHAR(40) NOT NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (employee_id) REFERENCES employees(id)
+);
